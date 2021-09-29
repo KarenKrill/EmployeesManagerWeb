@@ -1,0 +1,127 @@
+﻿@{
+    ViewData["Title"] = "Home Page";
+}
+@section scripts
+{
+    <script type="text/javascript">
+        function InitEmployeesTestData() {
+            var employees = [];
+            employees[0] = { name: "Alice", lastName: "Liddel", salary: 10000 };
+            employees[1] = { name: "John", lastName: "Smith", salary: 30000 };
+            employees[2] = { name: "Matthew", lastName: "Smith", salary: 20000 };
+            for (let i = 0; i < employees.length; i++) { AddEmployee(employees[i]); }
+        }
+        function ShowEmployees()
+        {
+            jQuery.getJSON('/api/employees', function (employees) {
+                jQuery('#Employees').text("Employees (" + employees.length + "):");
+                jQuery('#Employees').children("li").remove();
+                for (let i = 0; i < employees.length; i++) {
+                    jQuery('#Employees').append('<li>' + employees[i].name + ' ' + employees[i].lastName + ' (id ' + employees[i].id + ') ' + 'has salary ' + employees[i].salary + '</li>');
+                }
+            });
+        }
+        //debug
+        function RequestFailed(jqXHR, status, error) {
+            jQuery('#RequestErrors').children().remove();
+            jQuery('#RequestErrors').text("");
+            jQuery('#RequestErrors').append('<p>RequestFailed!</p>');
+            jQuery('#RequestErrors').append('jqXHR:<br>' + jqXHR.responseText);
+            jQuery('#RequestErrors').append('<br>status: ' + status);
+            jQuery('#RequestErrors').append('<br>error: ' + error);
+        }
+        function FormToJson(form) {
+            var serializedStr = form.serialize(); //name=Jack&lastName=Black&salary=5000&__RequestVerificationToken=CfDJ8CV5H...Prx0FJss
+            let values = serializedStr.split('&');
+            var employeeData = { id: 0 };//{ "id": 0, "name": "Jack", "lastName": "Black", "salary": "5000" }
+            for (let i = 0; i < values.length; i++) {
+                let property = values[i].split('=');
+                if (property[0] != "__RequestVerificationToken") {
+                    employeeData[property[0]] = property[1];
+                }
+            }
+            return employeeData;
+        }
+        function AddEmployee(employeeJson) {
+            var response = $.ajax({
+                url: "/api/employees",
+                type: "POST",
+                contentType: "application/json",
+                dataType: "json",
+                data: JSON.stringify(employeeJson),
+                error: RequestFailed
+            });
+            //response.abort();
+            ShowEmployees();
+        }
+        function AddEmployeeButton_OnClick() { AddEmployee(FormToJson($('#AddEmployeeForm'))); }
+        function DeleteEmployeeButton_OnClick()
+        {
+            var response = $.ajax({
+                url: "/api/employees/" + jQuery("#EmployeeID").val(),
+                type: "DELETE",
+                error: RequestFailed
+            });
+            ShowEmployees();
+        }
+        function SearchEmployeeButton_OnClick() {
+            jQuery.getJSON('/api/employees/search/' + jQuery("#EmployeeID").val(), function (employee)
+            {
+                jQuery('#SearchResult').children().remove();
+                if (employee == null) jQuery('#SearchResult').append("<ul>No results</ul>");
+                else jQuery('#SearchResult').append('<ul>Search result:<li>' + employee.name + ' ' + employee.lastName + ' (id ' + employee.id + ') ' + 'has salary ' + employee.salary + '</li></ul>');
+            });
+        }
+        function ShowEmployeeAddingStatus() {
+            jQuery.getJSON('/api/employees/EmployeeAddingProgress', function (status) {
+                jQuery('#EmployeeAddingStatusLabel').text("EmployeeAddingStatus: " + status);
+            });
+            ShowEmployees();
+        }
+
+        $('#AddEmployeeButton').click(AddEmployeeButton_OnClick);
+        $('#GetEmployees').click(function () { ShowEmployeeAddingStatus(); ShowEmployees(); });
+        $("#DeleteEmployeeButton").click(DeleteEmployeeButton_OnClick);
+        $("#SearchEmployeeButton").click(SearchEmployeeButton_OnClick);
+        InitEmployeesTestData();
+        ShowEmployees();
+    </script>
+}
+
+<div class="text-center">
+    <h1 class="display-4">Welcome</h1>
+</div>
+
+<p>
+    <input type="button" id="GetEmployees" value="Refresh" />
+    <label id="EmployeeAddingStatusLabel">EmployeeAddingStatus:</label>
+    <ul id="Employees">Employees:</ul>
+</p>
+<hr>
+<form id="AddEmployeeForm" method="post">
+    <h2>Add new employee</h2>
+    <p>
+        <label for="name">Name</label>
+        <input type="text" name="name" value="Jack" />
+    </p>
+    <p>
+        <label for="lastName">Last name</label>
+        <input type="text" name="lastName" value="Black" />
+    </p>
+    <p>
+        <label for="salary">Salary</label>
+        <input type="number" name="salary" value="50000" />
+    </p>
+    <input type="button" id="AddEmployeeButton" value="Add" />
+</form>
+<hr>
+<p>
+    <br>
+    <label>EmployeeID</label>
+    <input type="number" id="EmployeeID" />
+    <input type="button" id="DeleteEmployeeButton" value="Delete" />
+    <input type="button" id="SearchEmployeeButton" value="Search" />
+</p>
+<div id="SearchResult"></div>
+<hr>
+<div id="RequestErrors"></div>
