@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Concurrent;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -23,25 +24,21 @@ namespace EmployeesManagerWeb.Models
     /// </summary>
     public class EmployeesManager
     {
-        private Dictionary<uint, Employee> employees = new Dictionary<uint, Employee>();
+        private ConcurrentDictionary<uint, Employee> employees = new ConcurrentDictionary<uint, Employee>();
         private UidGenerator uidGenerator = new UidGenerator((uint)new Random().Next());
         public Employee[] GetList() { return employees.Values.ToArray(); }
         public bool Add(Employee employee, IProgress<uint> progress = null, System.Threading.CancellationToken cancelToken = default)
         {
-            lock (employees)//thread safety
+            uint n = 80;
+            for (uint i = 0; i < n; i++)
             {
-                uint n = 80;
-                for (uint i = 0; i < n; i++)
-                {
-                    progress?.Report(100 * i / n);
-                    if(cancelToken.IsCancellationRequested) return false;
-                    System.Threading.Thread.Sleep(20);
-                }
-                employee.ID = uidGenerator.GetNextUID();
-                employees.Add(employee.ID, employee);
-                progress?.Report(100);
+                progress?.Report(100 * i / n);
+                if(cancelToken.IsCancellationRequested) return false;
+                System.Threading.Thread.Sleep(20);
             }
-            return true;
+            employee.ID = uidGenerator.GetNextUID();
+            progress?.Report(100);
+            return employees.TryAdd(employee.ID, employee);
         }
         public async Task<bool> AddAsync(Employee employee, Progress<uint> progress = null, System.Threading.CancellationToken cancellationToken = default)
         {
@@ -49,7 +46,7 @@ namespace EmployeesManagerWeb.Models
             result = await Task.Run(() => Add(employee, progress, cancellationToken));
             return result;
         }
-        public bool Remove(uint ID){ return employees.Remove(ID); }
+        public bool Remove(uint ID){ return employees.Remove(ID, out _); }
         public Employee Search(uint ID)
         {
             Employee employee = null;
